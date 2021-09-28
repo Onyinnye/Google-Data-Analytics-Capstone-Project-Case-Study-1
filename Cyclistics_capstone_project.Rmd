@@ -1,0 +1,352 @@
+---
+name: "Onyinye Udebuani"
+title: "Cyclistic Data Analysis"
+output: html_notebook
+---
+### INTRODUCTION
+This is my attempt on the cyclistics bikeshare dataset for the [Google Data Analytics Professional Certification](https://www.coursera.org/learn/google-data-analytics) capstone project.
+In this project, I have followed all the data analysis steps taught in this course
+* Ask
+* Prepare
+* Process
+* Analyse
+* Share
+* Act
+
+### ASK
+Cyclistic is a bike-share program that features more than 5,800 bicycles and 600 docking stations. Cyclistic sets itself
+apart by also offering reclining bikes, hand tricycles, and cargo bikes, making bike-share more inclusive to people with
+disabilities and riders who can’t use a standard two-wheeled bike. The majority of riders opt for traditional bikes; about
+8% of riders use the assistive options. Cyclistic users are more likely to ride for leisure, but about 30% use them to
+commute to work each day.
+
+* Business Task
+You are a junior data analyst working in the marketing analyst team at Cyclistic, a bike-share company in Chicago. The director
+of marketing believes the company’s future success depends on maximizing the number of annual memberships. Therefore,
+your team wants to understand how casual riders and annual members use Cyclistic bikes differently. From these insights,
+your team will design a new marketing strategy to convert casual riders into annual members. But first, Cyclistic executives
+must approve your recommendations, so they must be backed up with compelling data insights and professional data
+visualizations.
+* 1. How do annual members and casual riders use Cyclistic bikes differently?
+* 2. Why would casual riders buy Cyclistic annual memberships?
+* 3. How can Cyclistic use digital media to influence casual riders to become         members
+
+### PREPARE
+The monthly cylistics data was downloaded from [Cylistics data](https://divvy-tripdata.s3.amazonaws.com/index.html) and a folder was created in my pc where I stored the 12 months data from August 2020 to July 2021.
+ This is a public data,made available by Motivate International Inc which is also incharge of maintaining the integrity of the data by providing consistent columns and correct datatypes.
+ The personal information which includes the start and end longitude and latitude contained in this dataset will be removed when cleaning the dataset for analysis
+ The data is not biased since it contains a large number of cyclistic riders and is credible and maintains the ROCCC because it is Reliable, Original, Comprehensive, Current and Cited
+ * This datasets contains informations that could help gain insight on how casual riders compared with annual members
+ * The dataset may not contain enough information thay would help explore all the insights on how to convert casual riders to annual members
+ 
+### PROCESS
+I have chosen to use R for this project because it contains over one million rows and also to further explore R packages and libraries
+ 
+#### Importing the libraries needed for this project
+```{r}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(plyr)
+library(cowplot)
+```
+#### Setting working directory and importing the csv files
+```{r}
+setwd("C:/Users/Onyinye/Downloads/Bikeshare")
+aug_20 <- read.csv("202008-divvy-tripdata.csv")
+sep_20 <- read.csv("202009-divvy-tripdata.csv")
+oct_20 <- read.csv("202010-divvy-tripdata.csv")
+nov_20 <- read.csv("202011-divvy-tripdata.csv")
+dec_20 <- read.csv("202012-divvy-tripdata.csv")
+jan_21 <- read.csv("202101-divvy-tripdata.csv")
+feb_21 <- read.csv("202102-divvy-tripdata.csv")
+mar_21 <- read.csv("202103-divvy-tripdata.csv")
+apr_21 <- read.csv("202104-divvy-tripdata.csv")
+may_21 <- read.csv("202105-divvy-tripdata.csv")
+jun_21 <- read.csv("202106-divvy-tripdata.csv")
+jul_21 <- read.csv("202107-divvy-tripdata.csv")
+```
+#### Checking all the columns to make sure they have the same structure
+```{r}
+colnames(aug_20)
+colnames(sep_20)
+colnames(oct_20)
+colnames(nov_20)
+colnames(dec_20)
+colnames(jan_21)
+colnames(feb_21)
+colnames(mar_21)
+colnames(apr_21)
+colnames(may_21)
+colnames(jun_21)
+colnames(jul_21)
+```
+The structure of the columns are all the same so we go ahead to consolidate(merge the datasets)
+#### Consolidating the data
+```{r}
+cyclistic <- rbind(aug_20,sep_20,oct_20,nov_20,dec_20,jan_21,feb_21,mar_21,apr_21,may_21,jun_21,jul_21)
+
+```
+#### Removing personal information contained in the dataset(start and end longitude and longitude)
+```{r}
+cyclistic <- cyclistic %>%  
+  select(-c(start_lat, start_lng, end_lat, end_lng))
+```
+#### Inspecting the dataset
+```{r}
+nrow(cyclistic)
+colnames(cyclistic)
+str(cyclistic)
+summary(cyclistic)
+dim(cyclistic)
+table(cyclistic$member_casual)
+
+```
+#### Aggregating over the start time
+```{r}
+cyclistic$started_date <- as.POSIXct(cyclistic$started_at,"%Y-%m-%d %H:%M:%S") 
+cyclistic$started_month <- strftime(cyclistic$started_at, "%b")
+cyclistic$started_day <-strftime(cyclistic$started_at, "%d")
+cyclistic$started_year <- strftime(cyclistic$started_at, "%Y")
+cyclistic$started_day_of_week <- strftime(cyclistic$started_at, "%A")
+cyclistic$start_hour <-  strftime(cyclistic$started_at, "%H")
+cyclistic$start_hour <- as.numeric(cyclistic$start_hour)
+cyclistic$started_time_of_day<- cut(x =cyclistic$start_hour,breaks = c("00","06","12","18","24"),
+                                   labels = c("Night", "Morning", "Afternoon", "Evening"), include.lowest = TRUE)
+
+```
+#### Aggregating over the end time column
+```{r}
+cyclistic$ended_date <- as.POSIXct(cyclistic$ended_at,"%Y-%m-%d %H:%M:%S") 
+cyclistic$ended_month <- strftime(cyclistic$ended_at, "%b")
+cyclistic$ended_day <- strftime(cyclistic$ended_at, "%d")
+cyclistic$ended_year <- format(as.Date(cyclistic$ended_at), "%Y")
+cyclistic$ended_day_of_week <- format(as.Date(cyclistic$ended_at), "%A")
+cyclistic$end_hour <-  strftime(cyclistic$ended_at, "%H")
+cyclistic$end_hour <- as.numeric(cyclistic$end_hour)
+unique(cyclistic$end_hour)
+cyclistic$ended_time_of_day <- cut(x =cyclistic$end_hour,breaks = c("00","06","12","18","24"),
+                                   labels = c("Night", "Morning", "Afternoon", "Evening"), include.lowest = TRUE)
+```
+#### Calculating the ride length, changing to seconds and converting to the numeric type
+```{r}
+cyclistic$ride_length <- difftime(cyclistic$ended_at,cyclistic$started_at)
+cyclistic$ride_length <- as.numeric(cyclistic$ride_length)
+
+```
+#### Dropping duplicates, negative ride lengths and rows where the bikes left the station for maintanance or repair and saving the results in a new variable
+```{r}
+cyclistic_no_dups <- cyclistic[!duplicated(cyclistic$ride_id), ]
+print(paste("Removed", nrow(cyclistic) - nrow(cyclistic_no_dups), "duplicated rows"))
+cyclistic_2 <- cyclistic_no_dups[!(cyclistic_no_dups$start_station_name == "HQ QR" | cyclistic_no_dups$ride_length<0),]
+```
+#### Sorting the day of the week and the month in order of occurance
+```{r}
+cyclistic_2$started_day_of_week <- ordered(cyclistic_2$started_day_of_week, levels=c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+cyclistic_2$started_month <- ordered(cyclistic_2$started_month, levels = c("Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul" ))
+
+```
+### ANALYZE
+Before we go hands on to analyze the dataset, let's aggregate some factors over the member type
+```{r}
+summary(cyclistic_2$ride_length)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = mean)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = median)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = max)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = min)
+```
+#### Aggregating the start time over the member types
+```{r}
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual + cyclistic_2$started_time_of_day, FUN = mean)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual + cyclistic_2$started_day_of_week, FUN = mean)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual + cyclistic_2$started_month, FUN = mean)
+```
+#### Aggregating the end time over the member types
+```{r}
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual + cyclistic_2$ended_time_of_day, FUN = mean)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual + cyclistic_2$ended_day_of_week, FUN = mean)
+aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual + cyclistic_2$ended_month, FUN = mean)
+
+```
+```{r}
+summary<- as.array(summary(cyclistic_2$ride_length))
+agg1 <- aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = mean)
+agg2 <- aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = median)
+agg3 <- aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = max)
+agg4 <- aggregate(cyclistic_2$ride_length ~ cyclistic_2$member_casual, FUN = min)
+
+```
+#### Saving the summary statistics as a list and then exporting as CSV
+```{r}
+summaries <- list(summary, agg1, agg2, agg3, agg4)
+```
+```{r}
+ write.csv(summaries, file = 'C:/Users/Onyinye/Dropbox/PC/Desktop/Bikeshare/summaries.csv')
+```
+
+#### Checking our dataset to make sure everything is in order before proceeding to analysis
+```{r}
+head(cyclistic_2)
+summary(cyclistic_2)
+```
+#### FInding the percentage of casual riders and annual members
+```{r}
+cyclistic_2 %>% 
+  group_by(member_casual) %>% 
+ dplyr::summarise(number_of_riders = length(ride_id),
+            'percentage%_number_of_riders' = (length(ride_id) / nrow(cyclistic_2)) * 100)
+```
+From the above, we can see that annual members are more than the casual riders by 11.0863%
+#### Getting the graphical views of the casual riders and the annual members
+```{r}
+ggplot(cyclistic_2, aes(member_casual, fill=member_casual)) +
+  geom_bar() +
+  labs(x="Riders", title="Number of members and casual riders")
+```
+#### Analyzing ridership data by type and weekday for the start time
+```{r}
+cyclistic_2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>%  #creates weekday field using wday()
+  group_by(member_casual, weekday) %>%  #groups by usertype and weekday
+  dplyr::summarise(number_of_rides = n()							#calculates the number of rides and average duration 
+            ,average_duration = mean(ride_length)) %>% 		# calculates the average duration
+  arrange(member_casual, weekday)
+```
+Plotting this result for graphical understanding of the analysis
+```{r}
+cyclistic_2 %>% 
+  mutate(weekday = wday(started_at, label = TRUE)) %>% 
+  group_by(member_casual, weekday) %>% 
+  dplyr::summarise(number_of_rides = n()
+            ,average_duration = mean(ride_length)) %>% 
+  arrange(member_casual, weekday)  %>% 
+  ggplot(aes(x = weekday, y = number_of_rides, fill = member_casual)) +
+  geom_col(position = "dodge")
+```
+From the graph above, most rider's  especially the casual membersuse cyclistics services mostly on weekends while the annual members mostly used cyclistics services mostly on weekdays
+#### Plotting to know the time of day where most riders used cyclistics services
+```{r}
+ggplot(data = cyclistic_2)+
+  geom_bar(mapping =aes(x= started_time_of_day, fill = member_casual))+
+  facet_grid(~member_casual)+
+  labs(x = "Time of the day", y = "Number of rides", title = "Time of the day when most riders ride")
+```
+From the plot, both casual riders and annual members start their bike trips in the afternoon. let's check to know when most trips are ended for marketing purposes
+#### Plotting to know what time of the day most of the rides ended
+```{r}
+ggplot(data = cyclistic_2)+
+  geom_bar(mapping =aes(x= ended_time_of_day, fill = member_casual))+
+  facet_grid(~member_casual)+
+  labs(x = "Time of the day", y = "Number of rides", title = "Time of the day when most riders ended their trip")
+```
+Just as the start time, both casual riders and annual members ended their trip in the afternoon
+#### Visualizing to know the busiest month
+```{r}
+cyclistic_2 %>%
+  ggplot(aes(started_month, fill=member_casual)) +
+  labs(x="Month", title="Number of riders per month") +
+  geom_bar()
+```
+From the plot, the busiest months are June and July, let's analyze to know if temperature is correlated to the number of bank rental
+#### let's aggregate the cyclistic data to a monthly data to compare with the average mean temp.
+```{r}
+cyclistic_monthly <- data.frame(table(cyclistic_2$started_month))
+colnames(cyclistic_monthly) <- c("month","count")
+```
+##### June and July are the two months with the highest number of rides, to know why this happened, let's check to see if there is a corelation between the number of rides and Chicago's climate
+```{r}
+chicago_mean_temp <- c(23.9, 19.9, 12.9, 5.8, -0.3, -3.2, -1.2, 4.4, 10.5, 16.6, 22.2, 24.8)
+month <- c("Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul")
+Chicago_temp <- data.frame(month, chicago_mean_temp)
+```
+##### Merging cyclistic_monthly and chicago_temp
+```{r}
+monthly_temp_merge <- merge(x = cyclistic_monthly, y = Chicago_temp, by = "month", all = TRUE)
+```
+##### Comparing the number of rides with Chicago's mean temp.
+```{r}
+monthly_temp_merge1<- monthly_temp_merge%>%
+  select(month, count)%>%
+  ggplot(aes(x=as.factor(month), y=count)) + 
+  geom_bar(aes(fill=month),stat = 'identity', position = 'dodge')  + 
+  ggtitle("Number of Rides per Month")  + 
+  xlab(label = "Month") + 
+  ylab("Number of Rides")+
+  theme_bw() 
+
+monthly_temp_merge2<- monthly_temp_merge%>%
+  select(month,chicago_mean_temp)%>%
+  ggplot(aes(x=as.factor(month), y=chicago_mean_temp)) + 
+  geom_bar(aes(fill=month),stat = 'identity', position = 'dodge') + 
+  ggtitle("Chicago Mean Temperature by Month")  + xlab(label = "Month") + 
+  ylab("Chicago mean temperature")+
+  theme_bw() 
+
+plot_grid(monthly_temp_merge1, monthly_temp_merge2, ncol = 1, nrow = 2)
+```
+From the graph, we can see that the number of rides increase with increasing temperature
+#### Let's check the start and end stations with the highest traffic
+```{r}
+dt2<-cyclistic_2%>%select(start_station_name, started_month)%>%group_by(start_station_name, started_month)%>%dplyr::summarise(Freq=n(), .groups = 'drop')%>%arrange(desc(Freq))
+```
+#### Filling the blank space with "NA"
+```{r}
+dt2[dt2==""]=NA
+```
+#### Removing the missing values
+```{r}
+dt3<-na.omit(dt2)
+```
+#### Selecting the top 10
+```{r}
+top10<-dt3[1:26,]
+```
+#### Plotting the result
+```{r}
+ggplot(top10, aes(start_station_name, Freq, fill=start_station_name)) +
+  geom_col()+coord_flip()+theme_bw()+labs(title = "Top 10 Start Stations", x="Start Station", y="Frequency")
+```
+From the plot, we can see that Streeter Dr & Grand Ave station had the highest ride start trip traffic
+#### Let's check to see the top 10 end station names
+```{r}
+dt4<-cyclistic_2%>%select(end_station_name, started_month)%>%group_by(end_station_name, started_month)%>%dplyr::summarise(Freq=n(), .groups = 'drop')%>%arrange(desc(Freq))
+```
+#### Filling the blank space with "NA"
+```{r}
+dt4[dt4==""]=NA
+```
+#### Removing the missing values
+```{r}
+dt5<-na.omit(dt4)
+```
+#### Selecting the top 10
+```{r}
+end_top10<-dt5[1:26,]
+
+```
+
+#### Plotting the top 10 end station name
+```{r}
+ggplot(end_top10, aes(end_station_name, Freq, fill=end_station_name)) +
+  geom_col()+coord_flip()+theme_bw()+labs(title = "Top 10 end Stations", x="end Station", y="Frequency")
+```
+From the plot, Streeter Dr& Grand Ave is also the station with the highest traffic for ended trips
+
+###SHARE
+* From the analysis although Annual members were 11.08% more than the casual riders, the casual riders had 42.77% more ride length on average as compared to the annual members so converting casual riders to annual members could be profitable to cyclistic
+* Most annual members use cyclistic on weekdays which means they could be a greater number of the 30% who commute to work with cyclistics while a graeater number of the casual riders use cyclistic on weekends which could be they use it  for leisure. Since most riders use cyclistic for leisure, it would be profitable to convert them to annual members
+* For digital media purpose, since most riders ride in the afternoon, weekends and mostly when the temperature is high, it is recommended that cyclistics should utilize this since they can reach more riders in this scenario
+* These digital Media adverts should be prioritized in stations as Streeter Dr& Grand Ave where there are more traffic as to maximize the potential of converting more casual riders
+
+### ACT
+This part of the analysis would be carried out by the marketing team using the findings of my analysis above as a yardstick to increase the chances of converting casual riders to annual members
+* ALthough some insights were gained from this data, even more could be achieved if informations of the below limitations were provided 
+
+#### Data Limitations
+* The dataset does not contain the age group of riders in other to know the form of advert that would be benficial to each group
+* The riding purpose should be included in other to know the exact percentage of riders who use cyclistic for commuting to work and the percentage that use it for leisure
+* The charges for annual membrship and single rides would have been useful to determine if in fact annual membership would be beneficial to cyclistic 
+* Having information of the number of times a particular casual rider used cyclistic monthly would help to know if converting them would be beneficial to cyclistic
+
+
+

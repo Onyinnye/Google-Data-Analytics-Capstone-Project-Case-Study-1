@@ -1,0 +1,7 @@
+"","Var1","Freq","cyclistic_2.member_casual","cyclistic_2.ride_length","cyclistic_2.member_casual.1","cyclistic_2.ride_length.1","cyclistic_2.member_casual.2","cyclistic_2.ride_length.2","cyclistic_2.member_casual.3","cyclistic_2.ride_length.3"
+"1","Min.",0,"casual",2205.52301622492,"casual",1080,"casual",3356649,"casual",0
+"2","1st Qu.",441,"member",884.142571675809,"member",630,"member",2005282,"member",0
+"3","Median",792,"casual",2205.52301622492,"casual",1080,"casual",3356649,"casual",0
+"4","Mean",1471.5867509249,"member",884.142571675809,"member",630,"member",2005282,"member",0
+"5","3rd Qu.",1447,"casual",2205.52301622492,"casual",1080,"casual",3356649,"casual",0
+"6","Max.",3356649,"member",884.142571675809,"member",630,"member",2005282,"member",0
